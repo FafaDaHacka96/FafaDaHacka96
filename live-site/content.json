@@ -1,0 +1,26 @@
+{
+  "announcement": {
+    "show": true,
+    "text": "Fall 2026 spots are open. Book a free 15-minute intro call!"
+  },
+  "availability": "Weekday evenings and Saturday mornings",
+  "rates": {
+    "individual": "$40 / hour",
+    "group": "$25 / hour per student"
+  },
+  "contact": {
+    "email": "you@example.com",
+    "bookingLink": "https://calendly.com/your-link"
+  },
+  "subjects": [
+    "Calculus",
+    "Linear Algebra",
+    "Physics"
+  ],
+  "testimonials": [
+    {
+      "quote": "Went from a C to an A- in one semester.",
+      "name": "Sam, first-year engineering"
+    }
+  ]
+}

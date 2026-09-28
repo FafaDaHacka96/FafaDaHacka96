@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Content Example</title>
+<!-- 1. Add this once, next to your other scripts. -->
+<script src="live-content.js" defer></script>
+</head>
+<body>
+  <!-- 2. Mark the parts you want to edit live. The text written here is the fallback. -->
+
+  <!-- Shown or hidden by announcement.show -->
+  <div data-live-show="announcement.show" hidden>
+    <strong data-live="announcement.text">Now booking for the fall semester.</strong>
+  </div>
+
+  <h1>Tutoring</h1>
+  <p>Availability: <span data-live="availability">Weekday evenings</span></p>
+
+  <h2>Rates</h2>
+  <ul>
+    <li>One-on-one: <span data-live="rates.individual">$40 / hour</span></li>
+    <li>Group: <span data-live="rates.group">$25 / hour per student</span></li>
+  </ul>
+
+  <h2>Subjects</h2>
+  <!-- A list: the <template> is copied once per item. -->
+  <ul data-live-list="subjects">
+    <template><li data-live-item></li></template>
+    <li>Calculus</li>
+    <li>Physics</li>
+  </ul>
+
+  <h2>What students say</h2>
+  <div data-live-list="testimonials">
+    <template>
+      <blockquote>
+        <p data-live-item="quote"></p>
+        <footer data-live-item="name"></footer>
+      </blockquote>
+    </template>
+  </div>
+
+  <h2>Contact</h2>
+  <p>
+    <a data-live-href="contact.email" data-live="contact.email" href="mailto:you@example.com">you@example.com</a>
+    ·
+    <a data-live-href="contact.bookingLink" href="https://calendly.com/your-link">Book a session</a>
+  </p>
+</body>
+</html>

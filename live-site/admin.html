@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Website Editor</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673;
+    --border: #d6dbe1; --accent: #2457d6; --accent-text: #ffffff;
+    --ok: #1a7f37; --err: #c62828; --field: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --panel: #1a1f25; --text: #e6e9ed; --muted: #9aa4b1;
+      --border: #313843; --accent: #6b93ff; --accent-text: #0d1117;
+      --ok: #4ac26b; --err: #ff7b72; --field: #0f1317;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 96px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 16px;
+  }
+  summary { cursor: pointer; font-weight: 600; }
+  label { display: block; margin: 12px 0 0; font-weight: 600; }
+  .key { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .hint { display: block; color: var(--muted); font-size: 0.875rem; font-weight: 400; margin: 2px 0 0; }
+  input[type=text], input[type=password], input[type=number], textarea {
+    display: block; width: 100%; margin-top: 4px; padding: 8px 10px;
+    font: inherit; font-weight: 400; color: var(--text); background: var(--field);
+    border: 1px solid var(--border); border-radius: 6px;
+  }
+  textarea { min-height: 84px; resize: vertical; }
+  textarea.raw { min-height: 420px; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .check { display: flex; align-items: center; gap: 8px; }
+  .check input { width: 18px; height: 18px; margin: 0; }
+  fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 16px 0 0; padding: 4px 12px 12px; min-width: 0; }
+  legend { font-weight: 700; padding: 0 6px; }
+  .item { display: flex; gap: 8px; align-items: flex-end; }
+  .item > :first-child { flex: 1; min-width: 0; }
+  button {
+    font: inherit; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button.small { padding: 4px 10px; font-size: 0.875rem; margin-top: 10px; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel);
+    border-top: 1px solid var(--border); padding: 12px 16px;
+  }
+  .bar-inner { max-width: 720px; margin: 0 auto; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #status { flex: 1; min-width: 180px; font-size: 0.9375rem; }
+  #status.ok { color: var(--ok); }
+  #status.err { color: var(--err); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Website editor</h1>
+  <p class="sub">Changes you publish here show up on your site within about a minute, with no Netlify redeploy.</p>
+
+  <details class="panel" id="settings">
+    <summary>Connection settings</summary>
+    <label for="token">GitHub access token
+      <span class="hint">A fine-grained token with <b>Contents: Read and write</b> on your content repo. Stored only in this browser.</span>
+    </label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false">
+    <label for="repo">Content repo <span class="key">owner/repo</span></label>
+    <input id="repo" type="text" spellcheck="false">
+    <label for="path">Content file</label>
+    <input id="path" type="text" spellcheck="false">
+    <label for="site">Your website</label>
+    <input id="site" type="text" spellcheck="false">
+    <button class="small" id="connect">Save and load content</button>
+  </details>
+
+  <div class="panel">
+    <label class="check" style="margin:0"><input type="checkbox" id="rawToggle"> Edit raw JSON (to add or rename fields)</label>
+    <div id="form"><p class="hint">Open <b>Connection settings</b> and add your token to start.</p></div>
+    <textarea id="raw" class="raw" hidden spellcheck="false"></textarea>
+  </div>
+</main>
+
+<div class="bar">
+  <div class="bar-inner">
+    <span id="status"></span>
+    <a id="viewSite" target="_blank" rel="noopener">View site</a>
+    <button id="reload">Reload</button>
+    <button id="save" class="primary" disabled>Publish</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var DEFAULTS = {
+    repo: 'FafaDaHacka96/FafaDaHacka96',
+    path: 'live-site/content.json',
+    site: 'https://fayssal-tutoring.netlify.app'
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var store = {
+    get: function (k) { try { return localStorage.getItem('liveEditor.' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem('liveEditor.' + k, v); } catch (e) {} }
+  };
+
+  var data = null;   // the content being edited
+  var sha = null;    // version of content.json on GitHub, required to save
+  var dirty = false;
+
+  ['token', 'repo', 'path', 'site'].forEach(function (k) {
+    $(k).value = store.get(k) || DEFAULTS[k] || '';
+  });
+  $('viewSite').href = $('site').value;
+  if (!$('token').value) $('settings').open = true;
+
+  function setStatus(text, kind) {
+    $('status').textContent = text;
+    $('status').className = kind || '';
+  }
+
+  function setDirty(value) {
+    dirty = value;
+    $('save').disabled = !data || !dirty;
+    if (dirty) setStatus('Unsaved changes');
+  }
+
+  function contentsUrl() {
+    return 'https://api.github.com/repos/' + $('repo').value.trim() + '/contents/' +
+      encodeURI($('path').value.trim().replace(/^\/+/, ''));
+  }
+
+  function github(method, body) {
+    return fetch(contentsUrl(), {
+      method: method,
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: 'Bearer ' + $('token').value.trim(),
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (json) {
+        if (res.ok) return json;
+        var msg = json.message || ('GitHub responded ' + res.status);
+        if (res.status === 401) msg = 'GitHub rejected the token. Check it in Connection settings.';
+        if (res.status === 404) msg = 'Content file not found, or the token has no access to that repo.';
+        if (res.status === 409 || (res.status === 422 && /sha/i.test(msg))) {
+          msg = 'The file changed on GitHub since you loaded it. Click Reload, then redo your edit.';
+        }
+        throw new Error(msg);
+      });
+    });
+  }
+
+  // GitHub sends file contents as base64 of UTF-8 bytes.
+  function decode(b64) {
+    var bin = atob(b64.replace(/\s/g, ''));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  function encode(text) {
+    var bytes = new TextEncoder().encode(text);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  function load() {
+    if (dirty && !confirm('Discard your unsaved changes?')) return;
+    if (!$('token').value.trim()) {
+      $('settings').open = true;
+      setStatus('Add your GitHub token first.', 'err');
+      return;
+    }
+    setStatus('Loading…');
+    github('GET').then(function (file) {
+      data = JSON.parse(decode(file.content));
+      sha = file.sha;
+      setDirty(false);
+      render();
+      setStatus('Loaded. Edit below, then Publish.');
+    }).catch(function (err) {
+      setStatus(err instanceof SyntaxError ? 'The content file is not valid JSON.' : err.message, 'err');
+    });
+  }
+
+  function save() {
+    if (rawMode() && !readRaw()) return;
+    $('save').disabled = true;
+    setStatus('Publishing…');
+    github('PUT', {
+      message: 'Update website content',
+      content: encode(JSON.stringify(data, null, 2) + '\n'),
+      sha: sha
+    }).then(function (res) {
+      sha = res.content.sha;
+      setDirty(false);
+      setStatus('Published. Refresh your site in about a minute to see it.', 'ok');
+    }).catch(function (err) {
+      $('save').disabled = false;
+      setStatus(err.message, 'err');
+    });
+  }
+
+  // ---- Form built from the shape of the JSON ----
+
+  function humanize(key) {
+    return String(key)
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  // An empty value with the same shape, used when adding a list item.
+  function blank(value) {
+    if (Array.isArray(value)) return [];
+    if (value && typeof value === 'object') {
+      var out = {};
+      Object.keys(value).forEach(function (k) { out[k] = blank(value[k]); });
+      return out;
+    }
+    if (typeof value === 'number') return 0;
+    if (typeof value === 'boolean') return false;
+    return '';
+  }
+
+  function el(tag, props, children) {
+    var node = document.createElement(tag);
+    Object.keys(props || {}).forEach(function (k) { node[k] = props[k]; });
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  function keyTag(path) {
+    return path ? el('span', { className: 'key', textContent: path }) : null;
+  }
+
+  // Builds the editor for parent[key]. path is the dotted key used in data-live="…".
+  function field(parent, key, label, path) {
+    var value = parent[key];
+
+    if (Array.isArray(value)) {
+      var box = el('fieldset', {}, [el('legend', { textContent: label })]);
+      box.appendChild(el('p', { className: 'hint', textContent: 'List: use data-live-list="' + path + '"' }));
+      value.forEach(function (_, i) {
+        var remove = el('button', { className: 'small', type: 'button', textContent: 'Remove' });
+        remove.addEventListener('click', function () {
+          value.splice(i, 1);
+          setDirty(true);
+          render();
+        });
+        box.appendChild(el('div', { className: 'item' }, [field(value, i, label + ' ' + (i + 1), ''), remove]));
+      });
+      var add = el('button', { className: 'small', type: 'button', textContent: '+ Add' });
+      add.addEventListener('click', function () {
+        value.push(value.length ? blank(value[0]) : '');
+        setDirty(true);
+        render();
+      });
+      box.appendChild(add);
+      return box;
+    }
+
+    if (value && typeof value === 'object') {
+      var group = el('fieldset', {}, [el('legend', { textContent: label })]);
+      Object.keys(value).forEach(function (k) {
+        group.appendChild(field(value, k, humanize(k), path ? path + '.' + k : ''));
+      });
+      return group;
+    }
+
+    if (typeof value === 'boolean') {
+      var box2 = el('input', { type: 'checkbox', checked: value });
+      box2.addEventListener('change', function () { parent[key] = box2.checked; setDirty(true); });
+      return el('label', { className: 'check' }, [box2, document.createTextNode(label), keyTag(path)]);
+    }
+
+    var input;
+    if (typeof value === 'number') {
+      input = el('input', { type: 'number', value: String(value), step: 'any' });
+      input.addEventListener('input', function () {
+        parent[key] = input.value === '' ? 0 : Number(input.value);
+        setDirty(true);
+      });
+    } else {
+      var text = value == null ? '' : String(value);
+      input = text.length > 60 || text.indexOf('\n') !== -1
+        ? el('textarea', { value: text })
+        : el('input', { type: 'text', value: text });
+      input.addEventListener('input', function () { parent[key] = input.value; setDirty(true); });
+    }
+    return el('label', {}, [document.createTextNode(label), keyTag(path), input]);
+  }
+
+  function render() {
+    var form = $('form');
+    form.textContent = '';
+    if (!data) return;
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      Object.keys(data).forEach(function (k) { form.appendChild(field(data, k, humanize(k), k)); });
+    } else {
+      form.appendChild(el('p', { className: 'hint', textContent: 'The content file should be a JSON object. Use raw JSON mode.' }));
+    }
+    if (rawMode()) $('raw').value = JSON.stringify(data, null, 2);
+  }
+
+  // ---- Raw JSON mode ----
+
+  function rawMode() { return $('rawToggle').checked; }
+
+  function readRaw() {
+    try {
+      data = JSON.parse($('raw').value);
+      return true;
+    } catch (e) {
+      setStatus('Raw JSON has an error: ' + e.message, 'err');
+      return false;
+    }
+  }
+
+  $('rawToggle').addEventListener('change', function () {
+    if (!rawMode() && data && !readRaw()) {
+      $('rawToggle').checked = true;
+      return;
+    }
+    $('raw').hidden = !rawMode();
+    $('form').hidden = rawMode();
+    render();
+  });
+  $('raw').addEventListener('input', function () { setDirty(true); });
+
+  // ---- Wiring ----
+
+  $('connect').addEventListener('click', function () {
+    ['token', 'repo', 'path', 'site'].forEach(function (k) { store.set(k, $(k).value.trim()); });
+    $('viewSite').href = $('site').value.trim();
+    $('settings').open = false;
+    load();
+  });
+  $('reload').addEventListener('click', load);
+  $('save').addEventListener('click', save);
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      if (!$('save').disabled) save();
+    }
+  });
+  window.addEventListener('beforeunload', function (e) {
+    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  if ($('token').value) load();
+})();
+</script>
+</body>
+</html>
