@@ -29,23 +29,25 @@
   addEventListener("resize", queue, { passive: true });
   update();
 
-  // Fade content up as it scrolls into view. Skipped entirely under reduced motion,
-  // so everything is simply visible.
-  if (!reduce.matches && "IntersectionObserver" in window) {
+  // Fade content up as it scrolls in from below. Content is never hidden at rest:
+  // the animation starts while the element is still just under the fold, and anything
+  // that lands on screen another way (load, anchor jump) simply stays as it is.
+  if (!reduce.matches && "IntersectionObserver" in window && Element.prototype.animate) {
     const sel = ".section .head, .value, .subject, .rblock, .price, .perks li, .avail, .roles li, .awards li, .qa, .faq-side, .steps li, .direct, .composer";
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
-        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+        if (!e.isIntersecting) return;
+        io.unobserve(e.target);
+        if (e.boundingClientRect.top < innerHeight) return;
+        const el = e.target;
+        const peers = Array.from(el.parentElement.children).filter((c) => c.matches(sel));
+        el.animate(
+          [{ opacity: 0, transform: "translateY(26px)" }, { opacity: 1, transform: "none" }],
+          { duration: 800, delay: Math.min(peers.indexOf(el), 6) * 70, easing: "cubic-bezier(.2,.7,.2,1)", fill: "backwards" }
+        );
       });
-    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.06 });
-    doc.querySelectorAll(sel).forEach((el) => {
-      // Leave anything already scrolled past (e.g. after a reload mid-page) as is.
-      if (el.getBoundingClientRect().bottom < 0) return;
-      const peers = Array.from(el.parentElement.children).filter((c) => c.matches(sel));
-      el.style.setProperty("--rd", Math.min(peers.indexOf(el), 6) * 70 + "ms");
-      el.classList.add("rv");
-      io.observe(el);
-    });
+    }, { rootMargin: "0px 0px 12% 0px" });
+    doc.querySelectorAll(sel).forEach((el) => io.observe(el));
   }
 
   // Soft light that follows the pointer across cards (mouse and trackpad only).

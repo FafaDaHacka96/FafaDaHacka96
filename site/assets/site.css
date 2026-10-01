@@ -539,11 +539,6 @@ td.is-today .cell[aria-pressed="true"]{box-shadow:0 0 22px -4px rgba(255,181,69,
 @media (max-width:980px){.faq{grid-template-columns:1fr}}
 @media (max-width:520px){.qa summary{font-size:16.5px;padding:18px 0}.qa-body{padding-right:0}}
 
-/* ---------- Scroll reveal (added by JS only when motion is allowed) ---------- */
-.js .rv{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:var(--rd,0s)}
-.js .rv.in{opacity:1;transform:none}
-@media print{.js .rv{opacity:1;transform:none}}
-
 /* ---------- Pointer spotlight on cards ---------- */
 @media (hover:hover) and (pointer:fine){
   .lab,.rblock,.value,.awards li,.composer{position:relative;isolation:isolate}
