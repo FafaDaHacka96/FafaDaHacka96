@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "arena": {
+      "source": "Jakeschincariol/arena-skill",
+      "sourceType": "github",
+      "skillPath": "skills/arena/SKILL.md",
+      "computedHash": "08af21e29379e5cce972493e7dc9b0e94beaee4f352bb4ddb4a8950b40b75a8f"
+    },
     "deploy-to-vercel": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
